@@ -11,7 +11,7 @@ export async function PUT(request: Request) {
   if (!body.ids?.length) {
     return NextResponse.json({ error: "ids required" }, { status: 400 });
   }
-  const sections = reorderHomepageSections(body.ids);
+  const sections = await reorderHomepageSections(body.ids);
   revalidateStorefront();
   return NextResponse.json(sections);
 }

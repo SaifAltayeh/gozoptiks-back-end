@@ -4,8 +4,8 @@ import { requireAdmin } from "@/backend/require-admin";
 import { revalidateStorefront } from "@/backend/revalidate";
 import type { StoreConfig } from "@/backend/models";
 
-export function GET() {
-  return NextResponse.json(loadCatalog().store);
+export async function GET() {
+  return NextResponse.json((await loadCatalog()).store);
 }
 
 export async function PUT(request: Request) {
@@ -13,7 +13,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const store = (await request.json()) as StoreConfig;
-  const saved = saveStore(store);
+  const saved = await saveStore(store);
   revalidateStorefront();
   return NextResponse.json(saved);
 }

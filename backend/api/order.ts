@@ -10,7 +10,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ re
   }
   const { reference } = await params;
   const patch = (await request.json()) as Partial<Order>;
-  const order = updateOrder(decodeURIComponent(reference), patch);
+  const order = await updateOrder(decodeURIComponent(reference), patch);
   if (!order) return NextResponse.json({ error: "Not found" }, { status: 404 });
   revalidateStorefront();
   return NextResponse.json(order);

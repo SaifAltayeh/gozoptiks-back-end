@@ -10,7 +10,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   }
   const { id } = await params;
   const section = (await request.json()) as HomepageSection;
-  const saved = upsertHomepageSection({ ...section, id });
+  const saved = await upsertHomepageSection({ ...section, id });
   revalidateStorefront();
   return NextResponse.json(saved);
 }
@@ -20,7 +20,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
-  deleteHomepageSection(id);
+  await deleteHomepageSection(id);
   revalidateStorefront();
   return NextResponse.json({ ok: true });
 }

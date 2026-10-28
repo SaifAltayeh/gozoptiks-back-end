@@ -4,8 +4,8 @@ import { requireAdmin } from "@/backend/require-admin";
 import { revalidateStorefront } from "@/backend/revalidate";
 import type { AboutContent } from "@/backend/models";
 
-export function GET() {
-  return NextResponse.json(loadCatalog().about);
+export async function GET() {
+  return NextResponse.json((await loadCatalog()).about);
 }
 
 export async function PUT(request: Request) {
@@ -17,7 +17,7 @@ export async function PUT(request: Request) {
     if (!about?.en || !about?.ar) {
       return NextResponse.json({ error: "About content is incomplete." }, { status: 400 });
     }
-    const saved = saveAbout(about);
+    const saved = await saveAbout(about);
     revalidateStorefront();
     return NextResponse.json(saved);
   } catch (error) {

@@ -10,7 +10,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   }
   const { id } = await params;
   const brand = (await request.json()) as Brand;
-  const saved = upsertBrand({ ...brand, id });
+  const saved = await upsertBrand({ ...brand, id });
   revalidateStorefront();
   return NextResponse.json(saved);
 }
@@ -20,7 +20,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
-  deleteBrand(id);
+  await deleteBrand(id);
   revalidateStorefront();
   return NextResponse.json({ ok: true });
 }

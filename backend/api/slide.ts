@@ -10,7 +10,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   }
   const { id } = await params;
   const slide = (await request.json()) as HomepageHeroSlide;
-  const saved = upsertHeroSlide({ ...slide, id });
+  const saved = await upsertHeroSlide({ ...slide, id });
   revalidateStorefront();
   return NextResponse.json(saved);
 }
@@ -20,7 +20,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
-  deleteHeroSlide(id);
+  await deleteHeroSlide(id);
   revalidateStorefront();
   return NextResponse.json({ ok: true });
 }

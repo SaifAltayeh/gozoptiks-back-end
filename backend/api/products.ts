@@ -4,8 +4,8 @@ import { requireAdmin } from "@/backend/require-admin";
 import { revalidateStorefront } from "@/backend/revalidate";
 import type { Product } from "@/backend/models";
 
-export function GET() {
-  return NextResponse.json(loadCatalog().products);
+export async function GET() {
+  return NextResponse.json((await loadCatalog()).products);
 }
 
 export async function POST(request: Request) {
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   if (!product.id) product.id = slugify(product.name) || `product-${Date.now()}`;
   if (!product.slug) product.slug = product.id;
   if (!product.createdAt) product.createdAt = new Date().toISOString().slice(0, 10);
-  const saved = upsertProduct(product);
+  const saved = await upsertProduct(product);
   revalidateStorefront();
   return NextResponse.json(saved, { status: 201 });
 }

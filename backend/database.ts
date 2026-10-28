@@ -1,16 +1,10 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import path from "path";
 import { defaultAbout } from "@/data/about";
 import { brands, categories, heroSlides, homepageSections, products } from "@/data/catalog";
 import { store } from "@/data/store";
-import { setCatalogSnapshot, tryGetCatalogSnapshot } from "@/backend/catalog-cache";
+import { setCatalogSnapshot } from "@/backend/catalog-cache";
+import { readStoredCatalog, writeStoredCatalog } from "@/backend/storage";
 import type { Database } from "@/backend/types";
 import type { AboutContent, Brand, Category, HomepageHeroSlide, HomepageSection, Order, Product, StoreConfig } from "@/backend/models";
-
-const runtimeDir = process.env.VERCEL
-  ? path.join("/tmp", "gozoptiks")
-  : path.join(process.cwd(), "data", "runtime");
-const dbPath = path.join(runtimeDir, "db.json");
 
 function seed(): Database {
   return {
@@ -25,29 +19,21 @@ function seed(): Database {
   };
 }
 
-function persist(db: Database) {
+async function persist(db: Database) {
   setCatalogSnapshot(db);
-  try {
-    if (!existsSync(runtimeDir)) mkdirSync(runtimeDir, { recursive: true });
-    writeFileSync(dbPath, JSON.stringify(db, null, 2));
-  } catch (error) {
-    console.error("Could not write catalog file", error);
-  }
+  await writeStoredCatalog(db);
 }
 
-export function loadCatalog(): Database {
-  const memory = tryGetCatalogSnapshot();
-  if (memory) return memory;
-
-  if (!existsSync(dbPath)) {
+export async function loadCatalog(): Promise<Database> {
+  const stored = await readStoredCatalog();
+  if (!stored) {
     const created = seed();
-    persist(created);
+    await persist(created);
     return created;
   }
 
-  const parsed = JSON.parse(readFileSync(dbPath, "utf8")) as Database;
-  const { db, changed } = migrateHomepage(parsed);
-  if (changed) persist(db);
+  const { db, changed } = migrateHomepage(stored);
+  if (changed) await persist(db);
   else setCatalogSnapshot(db);
   return db;
 }
@@ -128,56 +114,56 @@ function migrateHomepage(db: Database) {
   return { db, changed };
 }
 
-export function saveStore(next: StoreConfig) {
-  const db = loadCatalog();
+export async function saveStore(next: StoreConfig) {
+  const db = await loadCatalog();
   db.store = next;
-  saveCatalog(db);
+  await saveCatalog(db);
   return next;
 }
 
-export function saveAbout(next: AboutContent) {
-  const db = loadCatalog();
+export async function saveAbout(next: AboutContent) {
+  const db = await loadCatalog();
   db.about = next;
-  saveCatalog(db);
+  await saveCatalog(db);
   return next;
 }
 
-export function saveCatalog(db: Database) {
-  persist(db);
+export async function saveCatalog(db: Database) {
+  await persist(db);
 }
 
-export function upsertProduct(product: Product) {
-  const db = loadCatalog();
+export async function upsertProduct(product: Product) {
+  const db = await loadCatalog();
   const index = db.products.findIndex((item) => item.id === product.id);
   if (index >= 0) db.products[index] = product;
   else db.products.unshift(product);
-  saveCatalog(db);
+  await saveCatalog(db);
   return product;
 }
 
-export function deleteProduct(id: string) {
-  const db = loadCatalog();
+export async function deleteProduct(id: string) {
+  const db = await loadCatalog();
   db.products = db.products.filter((item) => item.id !== id);
-  saveCatalog(db);
+  await saveCatalog(db);
 }
 
-export function upsertBrand(brand: Brand) {
-  const db = loadCatalog();
+export async function upsertBrand(brand: Brand) {
+  const db = await loadCatalog();
   const index = db.brands.findIndex((item) => item.id === brand.id);
   if (index >= 0) db.brands[index] = brand;
   else db.brands.push(brand);
-  saveCatalog(db);
+  await saveCatalog(db);
   return brand;
 }
 
-export function deleteBrand(id: string) {
-  const db = loadCatalog();
+export async function deleteBrand(id: string) {
+  const db = await loadCatalog();
   db.brands = db.brands.filter((item) => item.id !== id);
-  saveCatalog(db);
+  await saveCatalog(db);
 }
 
-export function upsertCategory(category: Category) {
-  const db = loadCatalog();
+export async function upsertCategory(category: Category) {
+  const db = await loadCatalog();
   const next = { ...category, featured: Boolean(category.featured) };
   const index = db.categories.findIndex((item) => item.id === next.id);
   if (index >= 0) db.categories[index] = next;
@@ -186,69 +172,69 @@ export function upsertCategory(category: Category) {
   db.homepageSections = db.homepageSections.map((section) =>
     section.type === "categories" ? { ...section, categoryIds: featuredIds } : section,
   );
-  saveCatalog(db);
+  await saveCatalog(db);
   return next;
 }
 
-export function deleteCategory(id: string) {
-  const db = loadCatalog();
+export async function deleteCategory(id: string) {
+  const db = await loadCatalog();
   db.categories = db.categories.filter((item) => item.id !== id);
-  saveCatalog(db);
+  await saveCatalog(db);
 }
 
-export function addOrder(order: Order) {
-  const db = loadCatalog();
+export async function addOrder(order: Order) {
+  const db = await loadCatalog();
   db.orders.unshift(order);
-  saveCatalog(db);
+  await saveCatalog(db);
   return order;
 }
 
-export function updateOrder(reference: string, patch: Partial<Order>) {
-  const db = loadCatalog();
+export async function updateOrder(reference: string, patch: Partial<Order>) {
+  const db = await loadCatalog();
   const index = db.orders.findIndex((item) => item.reference === reference);
   if (index < 0) return null;
   db.orders[index] = { ...db.orders[index], ...patch };
-  saveCatalog(db);
+  await saveCatalog(db);
   return db.orders[index];
 }
 
-export function upsertHeroSlide(slide: HomepageHeroSlide) {
-  const db = loadCatalog();
+export async function upsertHeroSlide(slide: HomepageHeroSlide) {
+  const db = await loadCatalog();
   const index = db.heroSlides.findIndex((item) => item.id === slide.id);
   if (index >= 0) db.heroSlides[index] = slide;
   else db.heroSlides.push(slide);
-  saveCatalog(db);
+  await saveCatalog(db);
   return slide;
 }
 
-export function deleteHeroSlide(id: string) {
-  const db = loadCatalog();
+export async function deleteHeroSlide(id: string) {
+  const db = await loadCatalog();
   db.heroSlides = db.heroSlides.filter((item) => item.id !== id);
-  saveCatalog(db);
+  await saveCatalog(db);
 }
 
-export function upsertHomepageSection(section: HomepageSection) {
-  const db = loadCatalog();
+export async function upsertHomepageSection(section: HomepageSection) {
+  const db = await loadCatalog();
   const index = db.homepageSections.findIndex((item) => item.id === section.id);
   if (index >= 0) db.homepageSections[index] = section;
   else db.homepageSections.push(section);
-  saveCatalog(db);
+  await saveCatalog(db);
   return section;
 }
 
-export function deleteHomepageSection(id: string) {
-  const db = loadCatalog();
+export async function deleteHomepageSection(id: string) {
+  const db = await loadCatalog();
   db.homepageSections = db.homepageSections.filter((item) => item.id !== id);
-  saveCatalog(db);
+  await saveCatalog(db);
 }
 
-export function reorderHomepageSections(ids: string[]) {
-  const db = loadCatalog();
+export async function reorderHomepageSections(ids: string[]) {
+  const db = await loadCatalog();
   db.homepageSections = db.homepageSections.map((section) => {
     const index = ids.indexOf(section.id);
     return index >= 0 ? { ...section, order: index } : section;
   });
-  saveCatalog(db);
+  await saveCatalog(db);
   return db.homepageSections.sort((a, b) => a.order - b.order);
 }
 

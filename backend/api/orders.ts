@@ -8,7 +8,7 @@ export async function GET() {
   if (!(await requireAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return NextResponse.json(loadCatalog().orders);
+  return NextResponse.json((await loadCatalog()).orders);
 }
 
 export async function POST(request: Request) {
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   if (!order?.reference || !order.items?.length) {
     return NextResponse.json({ error: "Invalid order" }, { status: 400 });
   }
-  const saved = addOrder(order);
+  const saved = await addOrder(order);
   revalidateStorefront();
   return NextResponse.json(saved, { status: 201 });
 }
