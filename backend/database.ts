@@ -3,11 +3,13 @@ import path from "path";
 import { defaultAbout } from "@/data/about";
 import { brands, categories, heroSlides, homepageSections, products } from "@/data/catalog";
 import { store } from "@/data/store";
-import { setCatalogSnapshot } from "@/backend/catalog-cache";
+import { setCatalogSnapshot, tryGetCatalogSnapshot } from "@/backend/catalog-cache";
 import type { Database } from "@/backend/types";
 import type { AboutContent, Brand, Category, HomepageHeroSlide, HomepageSection, Order, Product, StoreConfig } from "@/backend/models";
 
-const runtimeDir = path.join(process.cwd(), "data", "runtime");
+const runtimeDir = process.env.VERCEL
+  ? path.join("/tmp", "gozoptiks")
+  : path.join(process.cwd(), "data", "runtime");
 const dbPath = path.join(runtimeDir, "db.json");
 
 function seed(): Database {
@@ -24,12 +26,19 @@ function seed(): Database {
 }
 
 function persist(db: Database) {
-  if (!existsSync(runtimeDir)) mkdirSync(runtimeDir, { recursive: true });
-  writeFileSync(dbPath, JSON.stringify(db, null, 2));
   setCatalogSnapshot(db);
+  try {
+    if (!existsSync(runtimeDir)) mkdirSync(runtimeDir, { recursive: true });
+    writeFileSync(dbPath, JSON.stringify(db, null, 2));
+  } catch (error) {
+    console.error("Could not write catalog file", error);
+  }
 }
 
 export function loadCatalog(): Database {
+  const memory = tryGetCatalogSnapshot();
+  if (memory) return memory;
+
   if (!existsSync(dbPath)) {
     const created = seed();
     persist(created);
